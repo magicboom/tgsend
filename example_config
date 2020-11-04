@@ -1,0 +1,11 @@
+# bot's token 
+TOKEN="12345678:aaaBBBcccDDDeeeFFFjjj"
+
+# method to use
+METHOD=sendMessage
+
+# list of user-id and chat-id for sendMessage method
+TO=(
+"12345679"
+"-98765432"
+)

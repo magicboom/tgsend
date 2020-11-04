@@ -1,0 +1,98 @@
+#!/bin/bash
+
+usage() {
+	echo "Usage: $(basename $0) ARGS"
+	echo "ARGS:"
+	echo "  -c|--config <config-file>         Config file for to use (default: $config_file)"
+	echo "  -M|--method <method>              Method to use (default: $METHOD)"
+	echo
+	echo "method: sendMessage"
+	echo "  -m|--message <message>            Message to send"
+	echo "  -t|--send-to <userid>             Message to send to (default: ${TO[*]})"
+	echo
+	echo "EXAMPLES:"
+	echo "  echo test message | tgsend -c /path/to/config.file"
+	echo
+}
+
+err() {
+	echo "ERROR: $@"
+}
+
+read_stdin() {
+	while read $l; do
+		echo "$l"
+	done
+}
+
+tgrequest() {
+	local method=$1; shift
+	local data="$@" 
+	if [ -z "$method" ]; then
+		err "tgrequest(): method required"
+		exit 1
+	fi
+	curl -s -d "$data" "https://api.telegram.org/bot$TOKEN/$method"
+}
+
+config_file=/etc/sysconfig/$(basename $0)
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		"-c"|"--config")
+			config_file=$2
+			shift 2
+		;;
+		"-M"|"--method")
+			arg_method=$2
+			shift 2
+		;;
+		"-m"|"--message")
+			arg_message="$2"
+			shift 2
+		;;
+		"-t"|"--send-to")
+			arg_send_to="$2"
+			shift 2
+		;;
+		*)
+			usage "Invalid argument '$1'"
+			exit 1
+		;;
+	esac
+done
+
+[ -z "$config_file" ] && { usage "Config not set but required"; exit 1; }
+[ ! -f "$config_file" ] && { err "Unable to find '$config_file'"; exit 1; }
+
+source $config_file || { err "Unable to read $config_file"; exit 1; }
+
+[ -z "$TOKEN" ] && { err "config file has no TOKEN variable"; exit 1; }
+[ -n "$arg_method" ] && METHOD=$arg_method
+
+case $METHOD in
+	getMe)
+		tgrequest $METHOD
+	;;
+	getUpdates)
+		tgrequest $METHOD
+	;;
+	sendMessage)
+		if [ -z "$arg_message" ]; then
+			message="$(read_stdin)"
+		elif [ -n "$arg_message" ]; then
+			message="$arg_message"
+		else
+			err "Unable to read message"
+		fi
+		for t in ${TO[@]}; do
+			tgrequest $METHOD "text=$message&chat_id=$t"
+		done
+	;;
+	*)
+		err "Unknown method $METHOD"
+		exit 1
+	;;
+esac
+
+
